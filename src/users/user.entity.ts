@@ -14,8 +14,17 @@ export class User {
   @Column({ type: 'varchar', length: 255 })
   lastName: string;
 
-  @Column({ type: 'varchar', length: 255 })
-  password: string;
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  password: string | null;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  authProvider: 'local' | 'google' | 'linkedin' | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  oauthId: string | null;
+
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  avatarUrl: string | null;
 
   @Column({ type: 'boolean', default: true })
   isActive: boolean;

@@ -22,11 +22,20 @@ export class UsersService {
     });
   }
 
+  async findByOAuthId(oauthId: string, provider: string): Promise<User | null> {
+    return this.usersRepository.findOne({
+      where: { oauthId, authProvider: provider as any },
+    });
+  }
+
   async create(userData: {
     email: string;
     firstName: string;
     lastName: string;
-    password: string;
+    password?: string | null;
+    authProvider?: 'local' | 'google' | 'linkedin' | null;
+    oauthId?: string | null;
+    avatarUrl?: string | null;
   }): Promise<User> {
     const user = this.usersRepository.create(userData);
     return this.usersRepository.save(user);

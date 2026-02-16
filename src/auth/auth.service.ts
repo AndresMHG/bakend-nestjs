@@ -29,6 +29,7 @@ export class AuthService {
     const user = await this.usersService.create({
       ...registerDto,
       password: hashedPassword,
+      authProvider: 'local',
     });
 
     // Generar JWT
@@ -51,6 +52,18 @@ export class AuthService {
     const user = await this.usersService.findByEmail(loginDto.email);
     if (!user) {
       throw new UnauthorizedException('Email o contraseña incorrectos');
+    }
+
+    // Validar que el usuario no use OAuth
+    if (user.authProvider && user.authProvider !== 'local') {
+      throw new UnauthorizedException(
+        `Esta cuenta usa autenticación de ${user.authProvider}. Por favor inicia sesión con ${user.authProvider}.`
+      );
+    }
+
+    // Validar que el usuario tenga contraseña
+    if (!user.password) {
+      throw new UnauthorizedException('Esta cuenta no tiene contraseña configurada');
     }
 
     // Validar contraseña
@@ -82,7 +95,57 @@ export class AuthService {
     return user;
   }
 
-  private generateToken(user: any) {
+  async validateOAuthUser(oauthData: {
+    oauthId: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    avatarUrl: string | null;
+    provider: 'google' | 'linkedin';
+  }) {
+    // Buscar usuario por oauthId + provider
+    let user = await this.usersService.findByOAuthId(oauthData.oauthId, oauthData.provider);
+
+    if (user) {
+      // Usuario OAuth existente - actualizar profile data
+      user = await this.usersService.update(user.id, {
+        firstName: oauthData.firstName,
+        lastName: oauthData.lastName,
+        avatarUrl: oauthData.avatarUrl,
+      });
+      return user;
+    }
+
+    // Buscar por email para vincular automáticamente
+    user = await this.usersService.findByEmail(oauthData.email);
+
+    if (user) {
+      // Vincular cuenta existente con OAuth
+      user = await this.usersService.update(user.id, {
+        oauthId: oauthData.oauthId,
+        authProvider: oauthData.provider,
+        avatarUrl: oauthData.avatarUrl,
+        firstName: oauthData.firstName,
+        lastName: oauthData.lastName,
+      });
+      return user;
+    }
+
+    // Crear nuevo usuario OAuth
+    user = await this.usersService.create({
+      email: oauthData.email,
+      firstName: oauthData.firstName,
+      lastName: oauthData.lastName,
+      password: null,
+      authProvider: oauthData.provider,
+      oauthId: oauthData.oauthId,
+      avatarUrl: oauthData.avatarUrl,
+    });
+
+    return user;
+  }
+
+  public generateToken(user: any) {
     const payload = {
       sub: user.id,
       email: user.email,
